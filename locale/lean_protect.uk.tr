@@ -1,0 +1,158 @@
+# textdomain: lean_protect
+
+# ============================================================
+# protection.lua
+# ============================================================
+Protected by @1=Захищено гравцем @1
+
+# ============================================================
+# tools.lua
+# ============================================================
+Area Marker #1 (first corner)=Маркер #1 (перший кут)
+Area Marker #2 (second corner)=Маркер #2 (другий кут)
+Marker @1 set=Маркер @1 встановлено
+Volume: @1 blocks=Об'єм: @1 блоків
+Budget: @1 / @2 (free @3)=Бюджет: @1 / @2 (вільно @3)
+Use /protect <name> to create the area=Використайте /protect <назва> щоб створити область
+[WARNING] This volume exceeds your remaining budget!=[УВАГА] Цей об'єм перевищує ваш бюджет!
+
+# ============================================================
+# indicator.lua
+# ============================================================
+yours=ваша
+shared by @1=спільна з @1
+
+# ============================================================
+# api.lua
+# ============================================================
+Missing arguments=Не вказані аргументи
+Area is too small (@1 blocks, minimum @2)=Область замала (@1 блоків, мінімум @2)
+You already have @1 areas (maximum @2)=У вас вже @1 областей (максимум @2)
+Not enough budget: need @1, have @2 (used @3 of @4)=Недостатньо бюджету: треба @1, є @2 (використано @3 з @4)
+Area overlaps with '@1' (id @2, owner @3)=Область перетинається з '@1' (id @2, власник @3)
+Area not found=Область не знайдено
+You are not the owner of this area=Ви не власник цієї області
+You already have an area named '@1'=У вас вже є область з назвою '@1'
+New owner name is empty=Ім'я нового власника порожнє
+You already own this area=Ви вже власник цієї області
+Player '@1' already has @2 areas (max @3)=У гравця '@1' вже @2 областей (максимум @3)
+Player '@1' has insufficient budget (needs @2, free @3)=У гравця '@1' недостатньо бюджету (треба @2, вільно @3)
+Empty player name=Порожнє ім'я гравця
+Owner is already a member=Власник вже є учасником
+Player '@1' is already a member=Гравець '@1' вже є учасником
+Player '@1' is not a member of this area=Гравець '@1' не є учасником цієї області
+
+# ============================================================
+# commands.lua — /protect
+# ============================================================
+Create a protection area from two selected corners=Створити захисну область з двох вибраних кутів
+Usage: /protect <name> (@1)=Використання: /protect <назва> (@1)
+You must select two corners first (use markers 1 and 2)=Спершу виберіть два кути (маркерами 1 і 2)
+Failed: @1=Помилка: @1
+[OK] Area '@1' created (id @2, volume @3)=[OK] Область '@1' створена (id @2, об'єм @3)
+From @1 to @2=Від @1 до @2
+Used budget: @1 / @2=Використано бюджету: @1 / @2
+
+# ============================================================
+# commands.lua — /protect_list
+# ============================================================
+List your protection areas=Показати ваші захисні області
+You have no areas=У вас немає областей
+Your areas (@1):=Ваші області (@1):
+Used: @1 / @2=Використано: @1 / @2
+
+# ============================================================
+# commands.lua — /protect_remove
+# ============================================================
+Remove one of your protection areas=Видалити одну з ваших захисних областей
+Usage: /protect_remove <name>=Використання: /protect_remove <назва>
+Area '@1' not found=Область '@1' не знайдено
+[OK] Area '@1' removed (freed @2 blocks)=[OK] Область '@1' видалено (звільнено @2 блоків)
+
+# ============================================================
+# commands.lua — /protect_info
+# ============================================================
+Show your budget and area count=Показати бюджет і кількість областей
+=== Your protection info ======= Ваша інформація про захист ===
+Areas: @1 / @2=Області: @1 / @2
+Budget: @1 / @2 blocks (free @3)=Бюджет: @1 / @2 блоків (вільно @3)
+Minimum area: @1 blocks=Мінімальна область: @1 блоків
+
+# ============================================================
+# commands.lua — /protect_cancel
+# ============================================================
+Cancel the current corner selection=Скасувати поточне виділення кутів
+Selection cleared=Виділення очищено
+You had no selection=У вас не було виділення
+
+# ============================================================
+# commands.lua — /protect_show
+# ============================================================
+Highlight an area for 15 seconds (visible to everyone)=Підсвітити область на 15 секунд (видно всім)
+Player not found=Гравця не знайдено
+Cannot get player position=Не вдалось отримати позицію гравця
+You are not inside any protected area=Ви не знаходитесь у жодній захищеній області
+Highlighting '@1' for 15 seconds (all players)=Підсвічування '@1' протягом 15 секунд (усі гравці)
+
+# ============================================================
+# commands.lua — /protect_cleanup
+# ============================================================
+Remove all leftover protection walls=Прибрати всі залишки захисних стін
+Removed @1 leftover wall nodes=Прибрано @1 залишкових блоків стін
+
+# ============================================================
+# commands.lua — /protect_add
+# ============================================================
+Give another player access to your area=Дати іншому гравцю доступ до вашої області
+Usage: /protect_add <area> <player>=Використання: /protect_add <область> <гравець>
+[OK] Player '@1' now has access to '@2'=[OK] Гравець '@1' тепер має доступ до '@2'
+
+# ============================================================
+# commands.lua — /protect_remove_member
+# ============================================================
+Remove access for a player=Забрати доступ у гравця
+Usage: /protect_remove_member <area> <player>=Використання: /protect_remove_member <область> <гравець>
+[OK] Player '@1' removed from '@2'=[OK] Гравця '@1' видалено з '@2'
+
+# ============================================================
+# commands.lua — /protect_members
+# ============================================================
+List players with access to your area=Список гравців з доступом до вашої області
+Usage: /protect_members <area>=Використання: /protect_members <область>
+Area '@1' has no shared members=Область '@1' не має спільних учасників
+Members of '@1' (@2):=Учасники '@1' (@2):
+
+# ============================================================
+# commands.lua — /protect_rename
+# ============================================================
+Rename one of your areas=Перейменувати одну з ваших областей
+Usage: /protect_rename <old> <new>=Використання: /protect_rename <стара> <нова>
+Invalid new name: @1=Некоректна нова назва: @1
+[OK] Area '@1' renamed to '@2'=[OK] Область '@1' перейменовано на '@2'
+
+# ============================================================
+# commands.lua — /protect_transfer
+# ============================================================
+Transfer ownership of your area to another player=Передати право власності на область іншому гравцю
+Usage: /protect_transfer <area> <player>=Використання: /protect_transfer <область> <гравець>
+[OK] Area '@1' transferred to '@2'=[OK] Область '@1' передано гравцю '@2'
+
+# ============================================================
+# commands.lua — /protect_help
+# ============================================================
+Show protection mod help=Показати довідку з моду захисту
+=== lean_protect help ==== === Довідка lean_protect ===
+Craft two markers: stone + stick (green and red)=Скрафтіть два маркери: камінь + палиця (зелений і червоний)
+Click marker #1 on one corner, marker #2 on the opposite=Клікніть маркером #1 по одному куту, маркером #2 — по протилежному
+Then: /protect <name> — create the area=Потім: /protect <назва> — створити область
+/protect_list — list your areas=/protect_list — список ваших областей
+/protect_info — show budget=/protect_info — показати бюджет
+/protect_show [name] — highlight area for 15s=/protect_show [назва] — підсвітити область на 15 сек
+/protect_remove <name> — delete an area=/protect_remove <назва> — видалити область
+/protect_cancel — clear selection=/protect_cancel — очистити виділення
+/protect_add <area> <player> — share access=/protect_add <область> <гравець> — дати доступ
+/protect_remove_member <area> <player> — revoke access=/protect_remove_member <область> <гравець> — забрати доступ
+/protect_members <area> — list shared members=/protect_members <область> — список спільних учасників
+/protect_rename <old> <new> — rename area=/protect_rename <стара> <нова> — перейменувати область
+/protect_transfer <area> <player> — give ownership=/protect_transfer <область> <гравець> — передати власність
+Limits: @1 areas, @2 blocks total, min @3 blocks per area=Ліміти: @1 областей, @2 блоків усього, мін. @3 блоків на область
