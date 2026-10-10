@@ -156,3 +156,27 @@ Then: /protect <name> — create the area=Потім: /protect <назва> — 
 /protect_rename <old> <new> — rename area=/protect_rename <стара> <нова> — перейменувати область
 /protect_transfer <area> <player> — give ownership=/protect_transfer <область> <гравець> — передати власність
 Limits: @1 areas, @2 blocks total, min @3 blocks per area=Ліміти: @1 областей, @2 блоків усього, мін. @3 блоків на область
+# ============================================================
+# admin.lua
+# ============================================================
+List all protection areas owned by a player=Показати всі області гравця
+Usage: /protect_admin_list <player>=Використання: /protect_admin_list <гравець>
+Player '@1' has no areas=У гравця '@1' немає областей
+Areas of '@1' (@2):=Області гравця '@1' (@2):
+Force-remove an area owned by a player=Примусово видалити область гравця
+Usage: /protect_admin_remove <player> <area>=Використання: /protect_admin_remove <гравець> <область>
+Area '@1' of player '@2' not found=Область '@1' гравця '@2' не знайдено
+[OK] Removed area '@1' of '@2' (freed @3 blocks)=[OK] Видалено область '@1' гравця '@2' (звільнено @3 блоків)
+Rename any player's area=Перейменувати область будь-якого гравця
+Usage: /protect_admin_rename <player> <old> <new>=Використання: /protect_admin_rename <гравець> <стара> <нова>
+Area '@1' of '@2' not found=Область '@1' гравця '@2' не знайдено
+[OK] Renamed '@1' of '@2' to '@3'=[OK] Перейменовано '@1' гравця '@2' на '@3'
+Transfer any player's area to another player=Передати область будь-якого гравця іншому
+Usage: /protect_admin_transfer <player> <area> <new_owner>=Використання: /protect_admin_transfer <гравець> <область> <новий_власник>
+[OK] Area '@1' transferred from '@2' to '@3'=[OK] Область '@1' передано від '@2' до '@3'
+Show server-wide protection stats=Показати загальну статистику захисту
+=== Server protection stats ======= Статистика захисту сервера ===
+Areas: @1=Області: @1
+Owners: @1=Власники: @1
+Total volume: @1 blocks=Загальний об'єм: @1 блоків
+Can manage all protection areas on the server=Може керувати всіма захисними областями на сервері
