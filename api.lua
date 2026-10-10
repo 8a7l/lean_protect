@@ -1,13 +1,6 @@
 -- lean_protect/api.lua
 --
 -- Core logic: create, remove, look up, and check protection.
---
--- PERFORMANCE:
---   * Spatial hash of chunks for O(1) lookup.
---   * check_overlap uses the SAME spatial hash: only candidate areas
---     from overlapping chunks are tested. NOT all areas.
---   * Inline math (no function call overhead) in hot paths.
---   * Localized math functions.
 
 local areas = lean_protect.areas
 local chunks = lean_protect.chunks
@@ -29,7 +22,6 @@ lean_protect.MAX_AREAS_PER_PLAYER = MAX_AREAS_PER_PLAYER
 lean_protect.MAX_VOLUME_PER_PLAYER = MAX_VOLUME_PER_PLAYER
 lean_protect.MIN_VOLUME_PER_AREA = MIN_VOLUME_PER_AREA
 
--- Localized for speed
 local floor = math.floor
 local min = math.min
 local max = math.max
@@ -60,8 +52,6 @@ local function volume_of(minp, maxp)
 	return dx * dy * dz
 end
 
--- Публічна: чи гравець має доступ до області
--- (власник або member)
 function lean_protect.is_member(data, name)
 	if not data or not name then return false end
 	if name == data.owner then return true end
@@ -275,14 +265,14 @@ function lean_protect.create_area(owner, name, pos1, pos2)
 end
 
 -- ============================================================
--- Видалення
+-- Видалення (admin може передати force = true)
 -- ============================================================
-function lean_protect.remove_area(id, owner)
+function lean_protect.remove_area(id, owner, force)
 	local data = areas[id]
 	if not data then
 		return false, "Area not found"
 	end
-	if data.owner ~= owner then
+	if not force and data.owner ~= owner then
 		return false, "You are not the owner of this area"
 	end
 	unindex_area(id, data)
@@ -291,26 +281,27 @@ function lean_protect.remove_area(id, owner)
 end
 
 -- ============================================================
--- Перейменування
+-- Перейменування (force пропускає перевірки)
 -- ============================================================
-function lean_protect.rename_area(id, owner, new_name)
+function lean_protect.rename_area(id, owner, new_name, force)
 	local data = areas[id]
 	if not data then
 		return false, "Area not found"
 	end
-	if data.owner ~= owner then
+	if not force and data.owner ~= owner then
 		return false, "You are not the owner of this area"
 	end
 
-	-- Перевірка унікальності серед власних областей
-	local list = by_owner[owner] or {}
-	for i = 1, #list do
-		local other_id = list[i]
-		if other_id ~= id then
-			local other = areas[other_id]
-			if other and other.name == new_name then
-				return false, "You already have an area named '" ..
-					new_name .. "'"
+	if not force then
+		local list = by_owner[data.owner] or {}
+		for i = 1, #list do
+			local other_id = list[i]
+			if other_id ~= id then
+				local other = areas[other_id]
+				if other and other.name == new_name then
+					return false, "You already have an area named '" ..
+						new_name .. "'"
+				end
 			end
 		end
 	end
@@ -323,44 +314,43 @@ function lean_protect.rename_area(id, owner, new_name)
 end
 
 -- ============================================================
--- Передача власності
+-- Передача власності (force пропускає перевірки бюджету)
 -- ============================================================
-function lean_protect.transfer_area(id, owner, new_owner)
+function lean_protect.transfer_area(id, owner, new_owner, force)
 	local data = areas[id]
 	if not data then
 		return false, "Area not found"
 	end
-	if data.owner ~= owner then
+	if not force and data.owner ~= owner then
 		return false, "You are not the owner of this area"
 	end
 	if not new_owner or new_owner == "" then
 		return false, "New owner name is empty"
 	end
-	if new_owner == owner then
+	if new_owner == data.owner then
 		return false, "You already own this area"
 	end
 
-	-- Перевірка лімітів нового власника
-	local new_count = #(by_owner[new_owner] or {})
-	if new_count >= MAX_AREAS_PER_PLAYER then
-		return false, "Player '" .. new_owner ..
-			"' already has " .. new_count .. " areas (max " ..
-			MAX_AREAS_PER_PLAYER .. ")"
+	if not force then
+		local new_count = #(by_owner[new_owner] or {})
+		if new_count >= MAX_AREAS_PER_PLAYER then
+			return false, "Player '" .. new_owner ..
+				"' already has " .. new_count .. " areas (max " ..
+				MAX_AREAS_PER_PLAYER .. ")"
+		end
+
+		local new_used = used_volume[new_owner] or 0
+		if new_used + data.volume > MAX_VOLUME_PER_PLAYER then
+			return false, "Player '" .. new_owner ..
+				"' has insufficient budget (needs " .. data.volume ..
+				", free " .. (MAX_VOLUME_PER_PLAYER - new_used) .. ")"
+		end
 	end
 
-	local new_used = used_volume[new_owner] or 0
-	if new_used + data.volume > MAX_VOLUME_PER_PLAYER then
-		return false, "Player '" .. new_owner ..
-			"' has insufficient budget (needs " .. data.volume ..
-			", free " .. (MAX_VOLUME_PER_PLAYER - new_used) .. ")"
-	end
-
-	-- Переіндексація
 	unindex_area(id, data)
 
 	local old_owner = data.owner
 	data.owner = new_owner
-	-- Очищаємо members: новий власник починає з чистого аркуша
 	data.members = {}
 
 	index_area(id, data)
@@ -370,14 +360,14 @@ function lean_protect.transfer_area(id, owner, new_owner)
 end
 
 -- ============================================================
--- Керування учасниками
+-- Учасники
 -- ============================================================
-function lean_protect.add_member(id, owner, member_name)
+function lean_protect.add_member(id, owner, member_name, force)
 	local data = areas[id]
 	if not data then
 		return false, "Area not found"
 	end
-	if data.owner ~= owner then
+	if not force and data.owner ~= owner then
 		return false, "You are not the owner of this area"
 	end
 	if not member_name or member_name == "" then
@@ -398,12 +388,12 @@ function lean_protect.add_member(id, owner, member_name)
 	return true
 end
 
-function lean_protect.remove_member(id, owner, member_name)
+function lean_protect.remove_member(id, owner, member_name, force)
 	local data = areas[id]
 	if not data then
 		return false, "Area not found"
 	end
-	if data.owner ~= owner then
+	if not force and data.owner ~= owner then
 		return false, "You are not the owner of this area"
 	end
 	if not data.members or not data.members[member_name] then
@@ -430,7 +420,7 @@ function lean_protect.get_members(id)
 end
 
 -- ============================================================
--- Пошук і перевірка захисту
+-- Пошук
 -- ============================================================
 function lean_protect.is_pos_protected(pos, player_name)
 	local lst = chunks[pos_key(pos.x, pos.y, pos.z)]

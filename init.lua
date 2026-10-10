@@ -26,6 +26,7 @@ dofile(modpath .. "/wall.lua")
 dofile(modpath .. "/visuals.lua")
 dofile(modpath .. "/tools.lua")
 dofile(modpath .. "/commands.lua")
+dofile(modpath .. "/admin.lua")
 dofile(modpath .. "/protection.lua")
 dofile(modpath .. "/indicator.lua")
 
