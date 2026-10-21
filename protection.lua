@@ -5,43 +5,35 @@
 -- PERFORMANCE (critical): runs on every block interaction.
 -- Fast path for positions without any area nearby uses only pure Lua
 -- (no C++ calls).
+--
+-- BYPASS: привілей protection_bypass перевіряється БЕЗ кешу, щоб
+-- /grant і /revoke спрацьовували миттєво без рестарту. Кеш довелось
+-- прибрати, бо register_on_priv_grant/revoke не є частиною API
+-- Luanti 5.17 — колбеки не викликаються. Ціна: один C++ виклик
+-- check_player_privs, але лише в SLOW PATH (коли є область).
 
 local S = minetest.get_translator("lean_protect")
 
 local chunks = lean_protect.chunks
 local areas = lean_protect.areas
 local is_member = lean_protect.is_member
-local CHUNK_SIZE = lean_protect.CHUNK_SIZE
+local pos_chunk_hash = lean_protect.pos_chunk_hash
 
 -- Localized for speed
-local floor = math.floor
 local check_player_privs = minetest.check_player_privs
 
--- Bypass cache
-local bypass = {}
-
-local function refresh_bypass(player)
-	local name = player:get_player_name()
-	bypass[name] = check_player_privs(player, "protection_bypass")
-end
-
-minetest.register_on_joinplayer(refresh_bypass)
-
-minetest.register_on_priv_grant(function(name, priv)
-	if priv == "protection_bypass" then
-		bypass[name] = true
-	end
-end)
-
-minetest.register_on_priv_revoke(function(name, priv)
-	if priv == "protection_bypass" then
-		bypass[name] = false
-	end
-end)
-
-minetest.register_on_leaveplayer(function(player)
-	bypass[player:get_player_name()] = nil
-end)
+-- ============================================================
+-- Реєстрація привілею protection_bypass
+--
+-- ЦЕЙ привілей НЕ вбудований у Luanti — його треба реєструвати
+-- самостійно, інакше /grant <name> protection_bypass не працює.
+-- Реєстрація — один раз при завантаженні моду. Після цього
+-- /grant і /revoke працюють миттєво, БЕЗ рестарту.
+-- ============================================================
+minetest.register_privilege("protection_bypass", {
+	description = S("Can bypass area protection (moderator tool)"),
+	give_to_singleplayer = false,
+})
 
 -- Throttle повідомлень
 local last_msg = {}
@@ -56,6 +48,11 @@ local function notify(player_name, owner)
 	minetest.chat_send_player(player_name,
 		S("Protected by @1", owner or "someone"))
 end
+
+-- Очищення last_msg при виході гравця, щоб таблиця не росла
+minetest.register_on_leaveplayer(function(player)
+	last_msg[player:get_player_name()] = nil
+end)
 
 -- ============================================================
 -- Перевизначення core.is_protected
@@ -75,11 +72,7 @@ core.is_protected = function(pos, player_name)
 	end
 
 	-- FAST PATH: чи є область у чанку?
-	local cx = floor(pos.x / CHUNK_SIZE)
-	local cy = floor(pos.y / CHUNK_SIZE)
-	local cz = floor(pos.z / CHUNK_SIZE)
-	local key = (cx * 1048576 + cy) * 1048576 + cz
-
+	local key = pos_chunk_hash(pos.x, pos.y, pos.z)
 	local lst = chunks[key]
 	if not lst then
 		return delegate(pos, player_name)
@@ -109,25 +102,30 @@ core.is_protected = function(pos, player_name)
 		return delegate(pos, player_name)
 	end
 
-	-- Точка в чужій області
-	if bypass[player_name] then
+	-- Точка в чужій області — перевіряємо bypass БЕЗ кешу.
+	-- Додано перевірку protection_admin, щоб адміни мали доступ.
+	if check_player_privs(player_name, "protection_bypass") or
+			check_player_privs(player_name, "protection_admin") then
 		return delegate(pos, player_name)
-	end
-
-	if bypass[player_name] == nil then
-		local player = minetest.get_player_by_name(player_name)
-		if player then
-			bypass[player_name] = check_player_privs(player,
-				"protection_bypass")
-			if bypass[player_name] then
-				return delegate(pos, player_name)
-			end
-		end
 	end
 
 	notify(player_name, owner)
 	minetest.record_protection_violation(pos, player_name)
 
+	-- Розворот із затримкою, щоб клієнт його застосував
+	minetest.after(0.1, function()
+		local player = minetest.get_player_by_name(player_name)
+		if player then
+			local yaw = player:get_look_horizontal() + math.pi
+			if yaw > 2 * math.pi then
+				yaw = yaw - 2 * math.pi
+			end
+			player:set_look_horizontal(yaw)
+			player:set_look_vertical(-player:get_look_vertical())
+		end
+	end)
+	
+	
 	return true
 end
 

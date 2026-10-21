@@ -2,6 +2,12 @@
 --
 -- Marker tools for selecting area corners.
 --
+-- PERFORMANCE (critical):
+--   * globalstep проходить лише по гравцях із активним виділенням
+--     (selected_list), а не по всіх на сервері.
+--   * Якщо гравець не має pos1/pos2 — він взагалі не перевіряється.
+--   * Це дає ~500× менше роботи при 1000 гравцях і 2 активних.
+--
 -- Visibility rule: the green preview box is shown ONLY when the player
 -- holds a marker tool (tool1 or tool2) in the active hand.
 -- If the player switches to any other item, the preview hides
@@ -11,6 +17,29 @@ local S = minetest.get_translator("lean_protect")
 
 local selections = lean_protect.selections
 local visuals = lean_protect.visuals
+
+-- ============================================================
+-- Список гравців з активним виділенням
+-- ============================================================
+local selected_list = {}
+local selected_lookup = {}
+
+local function add_to_selected(player, pname)
+	if selected_lookup[pname] then return end
+	selected_lookup[pname] = true
+	selected_list[#selected_list+1] = player
+end
+
+local function remove_from_selected(pname)
+	if not selected_lookup[pname] then return end
+	selected_lookup[pname] = nil
+	for i = #selected_list, 1, -1 do
+		if selected_list[i]:get_player_name() == pname then
+			table.remove(selected_list, i)
+			return
+		end
+	end
+end
 
 -- ============================================================
 -- Перевірка: чи тримає гравець палку-маркер
@@ -35,7 +64,6 @@ local function calc_volume(p1, p2)
 	return dx * dy * dz
 end
 
--- Показати виділення (якщо є обидві точки і ще не показано)
 local function show_preview(player, sel)
 	if sel.wall_positions then return end
 	if not (sel.pos1 and sel.pos2) then return end
@@ -54,7 +82,6 @@ local function show_preview(player, sel)
 	sel.wall_positions = visuals.show_selection(mn, mx)
 end
 
--- Приховати виділення (pos1/pos2 залишаються в пам'яті)
 local function hide_preview(sel)
 	if not sel.wall_positions then return end
 	visuals.clear_selection(sel.wall_positions)
@@ -76,9 +103,11 @@ local function on_use_tool(player, pos, marker_index, itemstack)
 	local key = (marker_index == 1) and "pos1" or "pos2"
 	sel[key] = {x = pos.x, y = pos.y, z = pos.z}
 
+	-- Додаємо до selected_list: цей гравець тепер активний
+	add_to_selected(player, pname)
+
 	show_pos(player, S("Marker @1 set", marker_index), sel[key])
 
-	-- Перебудувати: прибрати старе і показати нове
 	hide_preview(sel)
 	show_preview(player, sel)
 
@@ -139,24 +168,29 @@ minetest.register_craft({
 
 -- ============================================================
 -- Globalstep: показ/приховування залежно від триманого предмета
+-- Проходить ЛИШЕ по selected_list.
 -- ============================================================
 local CHECK_INTERVAL = 0.5
 local accum = 0
 
--- Свій список активних гравців
-local active_list = {}
-local active_lookup = {}
-
 minetest.register_globalstep(function(dtime)
-	if #active_list == 0 then return end
+	if #selected_list == 0 then return end
 	accum = accum + dtime
 	if accum < CHECK_INTERVAL then return end
 	accum = 0
 
-	for i = 1, #active_list do
-		local player = active_list[i]
-		local sel = selections[player:get_player_name()]
-		if sel then
+	-- Проходимо з кінця: якщо гравець вийшов зі стану selected
+	-- (наприклад, /protect_cancel), видаляємо його зі списку.
+	for i = #selected_list, 1, -1 do
+		local player = selected_list[i]
+		local pname = player:get_player_name()
+		local sel = selections[pname]
+
+		if not sel then
+			-- Виділення вже немає — прибираємо з selected
+			selected_lookup[pname] = nil
+			table.remove(selected_list, i)
+		else
 			if holds_marker(player) then
 				show_preview(player, sel)
 			else
@@ -167,36 +201,25 @@ minetest.register_globalstep(function(dtime)
 end)
 
 -- ============================================================
+-- Публічна функція для commands.lua — забути гравця
+-- ============================================================
+function lean_protect.tools_forget(pname)
+	remove_from_selected(pname)
+end
+
+-- ============================================================
 -- Lifecycle
 -- ============================================================
-minetest.register_on_joinplayer(function(player)
-	local name = player:get_player_name()
-	if not active_lookup[name] then
-		active_lookup[name] = true
-		active_list[#active_list+1] = player
-	end
-end)
-
 minetest.register_on_leaveplayer(function(player)
-	local name = player:get_player_name()
+	local pname = player:get_player_name()
 
 	-- Прибрати виділення (саме блоки)
-	local sel = selections[name]
+	local sel = selections[pname]
 	if sel then
 		hide_preview(sel)
 	end
-	selections[name] = nil
-
-	-- Прибрати зі списку
-	if active_lookup[name] then
-		active_lookup[name] = nil
-		for i = #active_list, 1, -1 do
-			if active_list[i] == player then
-				table.remove(active_list, i)
-				break
-			end
-		end
-	end
+	selections[pname] = nil
+	remove_from_selected(pname)
 end)
 
-minetest.log("action", "[lean_protect] Tools registered")
+minetest.log("action", "[lean_protect] Tools registered (selected_list)")

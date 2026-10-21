@@ -63,6 +63,7 @@ minetest.register_chatcommand("protect", {
 			visuals.clear_selection(sel.wall_positions)
 		end
 		selections[name] = nil
+		lean_protect.tools_forget(name)   -- ДОДАНО: прибрати зі selected_list
 
 		msg(name, S("[OK] Area '@1' created (id @2, volume @3)",
 			param, id, data.volume))
@@ -179,6 +180,7 @@ minetest.register_chatcommand("protect_cancel", {
 				visuals.clear_selection(sel.wall_positions)
 			end
 			selections[name] = nil
+			lean_protect.tools_forget(name)   -- ДОДАНО: прибрати зі selected_list
 			return true, S("Selection cleared")
 		end
 		return true, S("You had no selection")

@@ -30,19 +30,25 @@ local max = math.max
 -- Утиліти
 -- ============================================================
 
-local function chunk_hash(cx, cy, cz)
+-- Єдина формула хешу чанку для всього моду.
+-- Використовується і тут, і в protection.lua.
+-- Виносимо в lean_protect.*, щоб уникнути дублювання.
+function lean_protect.chunk_hash(cx, cy, cz)
 	return (cx * 1048576 + cy) * 1048576 + cz
 end
 
-local function block_to_chunk(b)
-	return floor(b / CHUNK_SIZE)
-end
-
-local function pos_key(x, y, z)
+-- Хеш чанку за координатами блока (не чанка)
+function lean_protect.pos_chunk_hash(x, y, z)
 	local cx = floor(x / CHUNK_SIZE)
 	local cy = floor(y / CHUNK_SIZE)
 	local cz = floor(z / CHUNK_SIZE)
 	return (cx * 1048576 + cy) * 1048576 + cz
+end
+
+local chunk_hash = lean_protect.chunk_hash
+
+local function block_to_chunk(b)
+	return floor(b / CHUNK_SIZE)
 end
 
 local function volume_of(minp, maxp)
@@ -157,6 +163,11 @@ end
 -- Перевірки
 -- ============================================================
 local function check_limits(owner, minp, maxp)
+    -- Адміністратори не мають лімітів
+    if minetest.check_player_privs(owner, "protection_admin") then
+        return true, volume_of(minp, maxp)
+    end
+	
 	local vol = volume_of(minp, maxp)
 
 	if vol < MIN_VOLUME_PER_AREA then
@@ -164,7 +175,9 @@ local function check_limits(owner, minp, maxp)
 			" blocks, minimum " .. MIN_VOLUME_PER_AREA .. ")"
 	end
 
-	local count = #(by_owner[owner] or {})
+	-- FIX: без створення порожньої таблиці
+	local list = by_owner[owner]
+	local count = list and #list or 0
 	if count >= MAX_AREAS_PER_PLAYER then
 		return false, "You already have " .. count ..
 			" areas (maximum " .. MAX_AREAS_PER_PLAYER .. ")"
@@ -281,7 +294,7 @@ function lean_protect.remove_area(id, owner, force)
 end
 
 -- ============================================================
--- Перейменування (force пропускає перевірки)
+-- Перейменування
 -- ============================================================
 function lean_protect.rename_area(id, owner, new_name, force)
 	local data = areas[id]
@@ -314,7 +327,7 @@ function lean_protect.rename_area(id, owner, new_name, force)
 end
 
 -- ============================================================
--- Передача власності (force пропускає перевірки бюджету)
+-- Передача власності
 -- ============================================================
 function lean_protect.transfer_area(id, owner, new_owner, force)
 	local data = areas[id]
@@ -332,30 +345,31 @@ function lean_protect.transfer_area(id, owner, new_owner, force)
 	end
 
 	if not force then
-		local new_count = #(by_owner[new_owner] or {})
-		if new_count >= MAX_AREAS_PER_PLAYER then
-			return false, "Player '" .. new_owner ..
-				"' already has " .. new_count .. " areas (max " ..
-				MAX_AREAS_PER_PLAYER .. ")"
-		end
+		-- Адміністратори не мають лімітів при передачі
+		if not minetest.check_player_privs(owner, "protection_admin") then
+			local list = by_owner[new_owner]
+			local new_count = list and #list or 0
+			if new_count >= MAX_AREAS_PER_PLAYER then
+				return false, "Player '" .. new_owner ..
+					"' already has " .. new_count .. " areas (max " ..
+					MAX_AREAS_PER_PLAYER .. ")"
+			end
 
-		local new_used = used_volume[new_owner] or 0
-		if new_used + data.volume > MAX_VOLUME_PER_PLAYER then
-			return false, "Player '" .. new_owner ..
-				"' has insufficient budget (needs " .. data.volume ..
-				", free " .. (MAX_VOLUME_PER_PLAYER - new_used) .. ")"
-		end
+			local new_used = used_volume[new_owner] or 0
+			if new_used + data.volume > MAX_VOLUME_PER_PLAYER then
+				return false, "Player '" .. new_owner ..
+					"' has insufficient budget (needs " .. data.volume ..
+					", free " .. (MAX_VOLUME_PER_PLAYER - new_used) .. ")"
+			end
+		end   
 	end
 
 	unindex_area(id, data)
-
 	local old_owner = data.owner
 	data.owner = new_owner
 	data.members = {}
-
 	index_area(id, data)
 	storage_api.save_area(id, data)
-
 	return true, old_owner
 end
 
@@ -422,28 +436,43 @@ end
 -- ============================================================
 -- Пошук
 -- ============================================================
+
+-- FIX: раніше після першої області, у якій гравець НЕ член, ми
+-- одразу повертали true (захищено). Але якщо є перекриття (можливе
+-- при force=true), то гравець може бути членом іншої області, що
+-- перекриває. Тепер продовжуємо перевірку.
 function lean_protect.is_pos_protected(pos, player_name)
-	local lst = chunks[pos_key(pos.x, pos.y, pos.z)]
+	local lst = chunks[lean_protect.pos_chunk_hash(pos.x, pos.y, pos.z)]
 	if not lst then return false end
 
+	local owner, id
 	for i = 1, #lst do
-		local id = lst[i]
-		local data = areas[id]
+		local aid = lst[i]
+		local data = areas[aid]
 		if data and
 			pos.x >= data.min.x and pos.x <= data.max.x and
 			pos.y >= data.min.y and pos.y <= data.max.y and
 			pos.z >= data.min.z and pos.z <= data.max.z then
 			if lean_protect.is_member(data, player_name) then
-				return false
+				-- Гравець має доступ до цієї області — продовжуємо
+				-- перевіряти інші (може бути перекриття)
+			else
+				-- Знайдено чужу область — запам'ятали, але не
+				-- виходимо, бо можливо є ще одна, де гравець член
+				owner = owner or data.owner
+				id = id or aid
 			end
-			return true, data.owner, id
 		end
+	end
+
+	if owner then
+		return true, owner, id
 	end
 	return false
 end
 
 function lean_protect.get_area_at(pos)
-	local lst = chunks[pos_key(pos.x, pos.y, pos.z)]
+	local lst = chunks[lean_protect.pos_chunk_hash(pos.x, pos.y, pos.z)]
 	if not lst then return nil end
 
 	for i = 1, #lst do

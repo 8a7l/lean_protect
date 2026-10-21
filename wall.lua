@@ -1,4 +1,11 @@
 -- lean_protect/wall.lua
+--
+-- Тимчасові стіни. Без метаданих — VoxelManip не викликає
+-- on_construct, а LBM сам прибирає залишки при завантаженні чанка.
+--
+-- PERFORMANCE:
+--   * Ніяких meta-записів на блок → немає роботи для SQLite.
+--   * Один LBM на групу temp_wall замість двох окремих.
 
 -- Золота стіна (для /protect_show)
 minetest.register_node("lean_protect:wall", {
@@ -16,11 +23,6 @@ minetest.register_node("lean_protect:wall", {
 	is_ground_content = false,
 	drop = "",
 	groups = {not_in_creative_inventory = 1, temp_wall = 1},
-
-	on_construct = function(pos)
-		local meta = minetest.get_meta(pos)
-		meta:set_int("created", os.time())
-	end,
 })
 
 -- Зелена стіна (для виділення палками)
@@ -39,9 +41,20 @@ minetest.register_node("lean_protect:sel_wall", {
 	is_ground_content = false,
 	drop = "",
 	groups = {not_in_creative_inventory = 1, temp_wall = 1},
+})
 
-	on_construct = function(pos)
-		local meta = minetest.get_meta(pos)
-		meta:set_int("created", os.time())
+-- ============================================================
+-- LBM: прибирає будь-які залишки стін при завантаженні чанка з
+-- диска. Це гарантує, що після краша або рестарту залишки зникнуть.
+-- У звичайній роботі стіни тримаються в пам'яті — LBM їх не чіпає.
+-- ============================================================
+minetest.register_lbm({
+	name = "lean_protect:clear_leftover_walls",
+	nodenames = {"group:temp_wall"},
+	run_at_every_load = true,
+	action = function(pos, node)
+		minetest.remove_node(pos)
 	end,
 })
+
+minetest.log("action", "[lean_protect] Wall nodes registered")

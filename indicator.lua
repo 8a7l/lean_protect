@@ -1,6 +1,14 @@
 -- lean_protect/indicator.lua
 --
 -- HUD indicator: shows the area name and owner in the bottom-left corner.
+--
+-- PERFORMANCE:
+--   * globalstep проходить по всіх гравцях (не можна інакше — кожен
+--     може зайти в область).
+--   * Але кожна перевірка дешева: get_pos() + floor + порівняння з
+--     кешем. Lua-цикл get_area_at виконується лише якщо позиція
+--     змінилась.
+--   * last_pos зберігаємо як 3 числа, не як таблицю — менше алокацій.
 
 local S = minetest.get_translator("lean_protect")
 
@@ -36,7 +44,10 @@ local function ensure_hud(player)
 		style         = 0,
 	})
 	st.last_text = ""
-	st.last_pos  = nil
+	-- Остання позиція — три числа, не таблиця
+	st.lx = nil
+	st.ly = nil
+	st.lz = nil
 	hud_state[name] = st
 	return st
 end
@@ -50,7 +61,7 @@ local function update_hud(player, text)
 end
 
 -- ============================================================
--- Перевірка
+-- Перевірка одного гравця
 -- ============================================================
 local function check_player(player)
 	local name = player:get_player_name()
@@ -64,11 +75,11 @@ local function check_player(player)
 	local py = math.floor(pos.y + 0.5)
 	local pz = math.floor(pos.z + 0.5)
 
-	local lp = st.last_pos
-	if lp and lp[1] == px and lp[2] == py and lp[3] == pz then
+	-- Позиція не змінилась — нічого не робимо
+	if st.lx == px and st.ly == py and st.lz == pz then
 		return
 	end
-	st.last_pos = {px, py, pz}
+	st.lx, st.ly, st.lz = px, py, pz
 
 	local id, data = get_area_at({x = px, y = py, z = pz})
 	if not data then

@@ -28,6 +28,7 @@ dofile(modpath .. "/tools.lua")
 dofile(modpath .. "/commands.lua")
 dofile(modpath .. "/admin.lua")
 dofile(modpath .. "/protection.lua")
+dofile(modpath .. "/interact.lua")   
 dofile(modpath .. "/indicator.lua")
 
 minetest.log("action", "[lean_protect] Mod initialized (skeleton)")
