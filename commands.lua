@@ -1,3 +1,6 @@
+-- SPDX-License-Identifier: GPL-3.0-only
+-- Copyright (C) 2026 8a7l
+
 -- lean_protect/commands.lua
 --
 -- Chat commands for the protection mod.

@@ -1,3 +1,6 @@
+-- SPDX-License-Identifier: GPL-3.0-only
+-- Copyright (C) 2026 8a7l
+
 -- lean_protect/indicator.lua
 --
 -- HUD indicator: shows the area name and owner in the bottom-left corner.

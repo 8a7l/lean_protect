@@ -121,20 +121,14 @@ automatically on first start of this version.
 
 ## Configuration
 
-In `api.lua`:
+Settings can be changed in `minetest.conf` or via the Advanced Settings menu:
 
-| Constant | Default |
-|---|---|
-| `MAX_AREAS_PER_PLAYER` | 3 |
-| `MAX_VOLUME_PER_PLAYER` | 10000 |
-| `MIN_VOLUME_PER_AREA` | 1000 |
-
-In `storage.lua`:
-
-| Constant | Default |
-|---|---|
-| `NUM_SHARDS` | 16 |
-| `SAVE_INTERVAL` | 2.0 |
+| Setting | Default | Description |
+|---|---|---|
+| `lean_protect_max_areas_per_player` | 3 | Max areas per player |
+| `lean_protect_max_volume_per_player` | 10000 | Max total blocks per player |
+| `lean_protect_min_volume_per_area` | 1000 | Minimum area size |
+| `lean_protect_save_interval` | 2.0 | Disk save interval (seconds) |
 
 ## License
 

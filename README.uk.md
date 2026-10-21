@@ -120,20 +120,14 @@ schema                             # версія схеми
 
 ## Налаштування
 
-У `api.lua`:
+Змінюються у `minetest.conf` або через меню розширених налаштувань:
 
-| Константа | За замовчуванням |
-|---|---|
-| `MAX_AREAS_PER_PLAYER` | 3 |
-| `MAX_VOLUME_PER_PLAYER` | 10000 |
-| `MIN_VOLUME_PER_AREA` | 1000 |
-
-У `storage.lua`:
-
-| Константа | За замовчуванням |
-|---|---|
-| `NUM_SHARDS` | 16 |
-| `SAVE_INTERVAL` | 2.0 |
+| Налаштування | За замовчуванням | Опис |
+|---|---|---|
+| `lean_protect_max_areas_per_player` | 3 | Макс. областей на гравця |
+| `lean_protect_max_volume_per_player` | 10000 | Макс. блоків на гравця |
+| `lean_protect_min_volume_per_area` | 1000 | Мінімальний розмір області |
+| `lean_protect_save_interval` | 2.0 | Інтервал збереження (сек) |
 
 ## Ліцензія
 

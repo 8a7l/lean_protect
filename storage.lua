@@ -1,27 +1,24 @@
+-- SPDX-License-Identifier: GPL-3.0-only
+-- Copyright (C) 2026 8a7l
+
 -- lean_protect/storage.lua
---
 -- Persistent storage for area data.
---
--- PERFORMANCE:
---   * 16 шардів: дані розбиті за id % 16.
---   * Запис торкається лише одного шарду (не всіх областей).
---   * Шарди дзеркаляться у shard_cache — немає O(N) сканування.
---   * next_id зберігається окремо — немає сканування при старті.
---   * Debounce через minetest.after — без globalstep.
---   * Примусовий flush при shutdown — нічого не губиться.
---   * FIX: числові ключі конвертуються в рядкові перед JSON, щоб
---     уникнути null-заповнення масивів при великих id.
 
 local storage = lean_protect.storage
 local areas = lean_protect.areas
 
+-- ============================================================
+-- Налаштування
+-- ============================================================
+local settings = minetest.settings
+
 local SCHEMA_VERSION = 2
-local NUM_SHARDS = 16
-local SAVE_INTERVAL = 2.0   -- секунди між записами на диск
+local NUM_SHARDS = 16 -- НЕ виносимо в конфіг (зламає існуючі дані)
+local SAVE_INTERVAL = tonumber(settings:get("lean_protect_save_interval")) or 2.0
 
 local KEY_NEXT_ID = "next_id"
 local KEY_SCHEMA = "schema"
-local KEY_LEGACY = "data"   -- старий ключ (для міграції)
+local KEY_LEGACY = "data"
 
 local json_encode = minetest.write_json
 local json_decode = minetest.parse_json

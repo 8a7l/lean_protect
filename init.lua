@@ -1,3 +1,6 @@
+-- SPDX-License-Identifier: GPL-3.0-only
+-- Copyright (C) 2026 8a7l
+
 -- lean_protect/init.lua
 -- Lightweight area protection for Luanti servers.
 
@@ -30,5 +33,6 @@ dofile(modpath .. "/admin.lua")
 dofile(modpath .. "/protection.lua")
 dofile(modpath .. "/interact.lua")   
 dofile(modpath .. "/indicator.lua")
+
 
 minetest.log("action", "[lean_protect] Mod initialized (skeleton)")

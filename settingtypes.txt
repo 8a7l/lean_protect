@@ -1,0 +1,12 @@
+[lean_protect]
+# Maximum number of areas a single player can own
+lean_protect_max_areas_per_player (Max areas per player) int 3 1 100
+
+# Maximum total volume (in blocks) a single player can claim
+lean_protect_max_volume_per_player (Max volume per player) int 10000 1000 1000000
+
+# Minimum volume (in blocks) required to create an area
+lean_protect_min_volume_per_area (Min volume per area) int 1000 1 100000
+
+# Interval in seconds between writing data to disk
+lean_protect_save_interval (Storage save interval) float 2.0 0.5 60.0

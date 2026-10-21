@@ -1,3 +1,6 @@
+-- SPDX-License-Identifier: GPL-3.0-only
+-- Copyright (C) 2026 8a7l
+
 -- lean_protect/protection.lua
 --
 -- Protection hooks for Luanti 5.17+.
@@ -112,18 +115,23 @@ core.is_protected = function(pos, player_name)
 	notify(player_name, owner)
 	minetest.record_protection_violation(pos, player_name)
 
-	-- Розворот із затримкою, щоб клієнт його застосував
-	minetest.after(0.1, function()
-		local player = minetest.get_player_by_name(player_name)
-		if player then
-			local yaw = player:get_look_horizontal() + math.pi
-			if yaw > 2 * math.pi then
-				yaw = yaw - 2 * math.pi
-			end
-			player:set_look_horizontal(yaw)
-			player:set_look_vertical(-player:get_look_vertical())
+	-- Розворот із 5 спробами, щоб клієнт точно його застосував
+	local player = minetest.get_player_by_name(player_name)
+	if player then
+		local yaw = player:get_look_horizontal() + math.pi
+		yaw = yaw % (2 * math.pi)
+		local pitch = -player:get_look_vertical()
+
+		for i = 1, 5 do
+			minetest.after(i * 0.1, function()
+				local p = minetest.get_player_by_name(player_name)
+				if p then
+					p:set_look_horizontal(yaw)
+					p:set_look_vertical(pitch)
+				end
+			end)
 		end
-	end)
+	end
 	
 	
 	return true

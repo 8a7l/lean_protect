@@ -1,5 +1,7 @@
+-- SPDX-License-Identifier: GPL-3.0-only
+-- Copyright (C) 2026 8a7l
+
 -- lean_protect/api.lua
---
 -- Core logic: create, remove, look up, and check protection.
 
 local areas = lean_protect.areas
@@ -10,12 +12,17 @@ local used_volume = lean_protect.used_volume
 local storage_api = lean_protect.storage_api
 
 -- ============================================================
--- Налаштування
+-- Налаштування (читаються з minetest.conf)
 -- ============================================================
+local settings = minetest.settings
+
+-- CHUNK_SIZE НЕ виносимо в конфіг, бо це зламає сумісність
+-- з уже створеними індексами областей.
 local CHUNK_SIZE = 16
-local MAX_AREAS_PER_PLAYER = 3
-local MAX_VOLUME_PER_PLAYER = 10000
-local MIN_VOLUME_PER_AREA = 1000
+
+local MAX_AREAS_PER_PLAYER = tonumber(settings:get("lean_protect_max_areas_per_player")) or 3
+local MAX_VOLUME_PER_PLAYER = tonumber(settings:get("lean_protect_max_volume_per_player")) or 10000
+local MIN_VOLUME_PER_AREA = tonumber(settings:get("lean_protect_min_volume_per_area")) or 1000
 
 lean_protect.CHUNK_SIZE = CHUNK_SIZE
 lean_protect.MAX_AREAS_PER_PLAYER = MAX_AREAS_PER_PLAYER
