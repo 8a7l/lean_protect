@@ -4,16 +4,7 @@
 -- lean_protect/protection.lua
 --
 -- Protection hooks for Luanti 5.17+.
---
--- PERFORMANCE (critical): runs on every block interaction.
--- Fast path for positions without any area nearby uses only pure Lua
--- (no C++ calls).
---
--- BYPASS: привілей protection_bypass перевіряється БЕЗ кешу, щоб
--- /grant і /revoke спрацьовували миттєво без рестарту. Кеш довелось
--- прибрати, бо register_on_priv_grant/revoke не є частиною API
--- Luanti 5.17 — колбеки не викликаються. Ціна: один C++ виклик
--- check_player_privs, але лише в SLOW PATH (коли є область).
+-- This file ensures is_protected is a pure query with no side effects.
 
 local S = minetest.get_translator("lean_protect")
 
@@ -22,43 +13,58 @@ local areas = lean_protect.areas
 local is_member = lean_protect.is_member
 local pos_chunk_hash = lean_protect.pos_chunk_hash
 
--- Localized for speed
 local check_player_privs = minetest.check_player_privs
 
 -- ============================================================
 -- Реєстрація привілею protection_bypass
---
--- ЦЕЙ привілей НЕ вбудований у Luanti — його треба реєструвати
--- самостійно, інакше /grant <name> protection_bypass не працює.
--- Реєстрація — один раз при завантаженні моду. Після цього
--- /grant і /revoke працюють миттєво, БЕЗ рестарту.
 -- ============================================================
 minetest.register_privilege("protection_bypass", {
 	description = S("Can bypass area protection (moderator tool)"),
 	give_to_singleplayer = false,
 })
 
--- Throttle повідомлень
+-- ============================================================
+-- Обробка порушень (Рушій викликає це сам, рівно 1 раз на подію)
+-- ============================================================
 local last_msg = {}
 
-local function notify(player_name, owner)
-	local now = minetest.get_gametime()
-	local prev = last_msg[player_name]
-	if prev and now - prev < 2 then
-		return
-	end
-	last_msg[player_name] = now
-	minetest.chat_send_player(player_name,
-		S("Protected by @1", owner or "someone"))
-end
+minetest.register_on_protection_violation(function(pos, player_name)
+	if not player_name then return end
 
--- Очищення last_msg при виході гравця, щоб таблиця не росла
+	-- 1. Повідомлення (з throttle)
+	local now = minetest.get_gametime()
+	if not last_msg[player_name] or now - last_msg[player_name] > 2 then
+		last_msg[player_name] = now
+		local id, data = lean_protect.get_area_at(pos)
+		local owner = data and data.owner or "someone"
+		minetest.chat_send_player(player_name, S("Protected by @1", owner))
+	end
+
+	-- 2. 3D-розворот (5 спроб для впевненості)
+	local player = minetest.get_player_by_name(player_name)
+	if player then
+		local yaw = player:get_look_horizontal() + math.pi
+		yaw = yaw % (2 * math.pi)
+		local pitch = -player:get_look_vertical()
+
+		for i = 1, 5 do
+			minetest.after(i * 0.1, function()
+				local p = minetest.get_player_by_name(player_name)
+				if p then
+					p:set_look_horizontal(yaw)
+					p:set_look_vertical(pitch)
+				end
+			end)
+		end
+	end
+end)
+
 minetest.register_on_leaveplayer(function(player)
 	last_msg[player:get_player_name()] = nil
 end)
 
 -- ============================================================
--- Перевизначення core.is_protected
+-- Перевизначення core.is_protected (ЧИСТА ФУНКЦІЯ, БЕЗ САЙД-ЕФЕКТІВ)
 -- ============================================================
 local old_is_protected = core.is_protected
 
@@ -82,9 +88,7 @@ core.is_protected = function(pos, player_name)
 	end
 
 	-- SLOW PATH: у чанку є область. Перевіряємо, чи точка належить.
-	local owner
 	local in_area = false
-
 	for i = 1, #lst do
 		local id = lst[i]
 		local data = areas[id]
@@ -95,7 +99,6 @@ core.is_protected = function(pos, player_name)
 			if is_member(data, player_name) then
 				return delegate(pos, player_name)
 			end
-			owner = data.owner
 			in_area = true
 			break
 		end
@@ -106,34 +109,11 @@ core.is_protected = function(pos, player_name)
 	end
 
 	-- Точка в чужій області — перевіряємо bypass БЕЗ кешу.
-	-- Додано перевірку protection_admin, щоб адміни мали доступ.
 	if check_player_privs(player_name, "protection_bypass") or
 			check_player_privs(player_name, "protection_admin") then
 		return delegate(pos, player_name)
 	end
 
-	notify(player_name, owner)
-	minetest.record_protection_violation(pos, player_name)
-
-	-- Розворот із 5 спробами, щоб клієнт точно його застосував
-	local player = minetest.get_player_by_name(player_name)
-	if player then
-		local yaw = player:get_look_horizontal() + math.pi
-		yaw = yaw % (2 * math.pi)
-		local pitch = -player:get_look_vertical()
-
-		for i = 1, 5 do
-			minetest.after(i * 0.1, function()
-				local p = minetest.get_player_by_name(player_name)
-				if p then
-					p:set_look_horizontal(yaw)
-					p:set_look_vertical(pitch)
-				end
-			end)
-		end
-	end
-	
-	
 	return true
 end
 

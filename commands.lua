@@ -66,7 +66,7 @@ minetest.register_chatcommand("protect", {
 			visuals.clear_selection(sel.wall_positions)
 		end
 		selections[name] = nil
-		lean_protect.tools_forget(name)   -- ДОДАНО: прибрати зі selected_list
+		lean_protect.tools_forget(name)
 
 		msg(name, S("[OK] Area '@1' created (id @2, volume @3)",
 			param, id, data.volume))
@@ -183,7 +183,7 @@ minetest.register_chatcommand("protect_cancel", {
 				visuals.clear_selection(sel.wall_positions)
 			end
 			selections[name] = nil
-			lean_protect.tools_forget(name)   -- ДОДАНО: прибрати зі selected_list
+			lean_protect.tools_forget(name)
 			return true, S("Selection cleared")
 		end
 		return true, S("You had no selection")
@@ -193,13 +193,22 @@ minetest.register_chatcommand("protect_cancel", {
 -- ============================================================
 -- /protect_show [name]
 -- ============================================================
+local show_cooldown = {}
+
 minetest.register_chatcommand("protect_show", {
 	params = "[name]",
 	description = S("Highlight an area for 15 seconds (visible to everyone)"),
+	privs = {interact = true}, -- Додано перевірку привілею
 
 	func = function(name, param)
+		-- Кулдаун 60 секунд
+		local now = minetest.get_gametime()
+		if show_cooldown[name] and now - show_cooldown[name] < 60 then
+			return false, S("Please wait @1 seconds before using /protect_show again.", 
+				60 - math.floor(now - show_cooldown[name]))
+		end
+		
 		param = param:trim()
-
 		local id, data
 
 		if param == "" then
@@ -227,12 +236,22 @@ minetest.register_chatcommand("protect_show", {
 			end
 		end
 
+		-- Перевірка об'єму (захист від OOM)
+		if data.volume and data.volume > lean_protect.MAX_VISUAL_VOLUME then
+			return false, S("Area is too large to visualize (Max: @1 blocks).", lean_protect.MAX_VISUAL_VOLUME)
+		end
+
+		show_cooldown[name] = now -- Записуємо час успішного використання
 		visuals.box_global(data.min, data.max, 15)
 
 		return true, S("Highlighting '@1' for 15 seconds (all players)",
 			data.name)
 	end,
 })
+
+minetest.register_on_leaveplayer(function(player)
+	show_cooldown[player:get_player_name()] = nil
+end)
 
 -- ============================================================
 -- /protect_cleanup
@@ -248,7 +267,7 @@ minetest.register_chatcommand("protect_cleanup", {
 })
 
 -- ============================================================
--- /protect_add <area> <player> — додати учасника
+-- /protect_add <area> <player>
 -- ============================================================
 minetest.register_chatcommand("protect_add", {
 	params = "<area> <player>",

@@ -4,12 +4,6 @@
 -- lean_protect/interact.lua
 --
 -- Захист взаємодії (скрині, печі, інвентар).
---
--- ЛОГІКА ПРИВІЛЕЇВ:
---   protection_admin  -> може все (ламати, ставити, відкривати).
---   protection_bypass -> може ламати/ставити (це в protection.lua),
---                        але НЕ може відкривати контейнери (це тут).
---   Звичайний гравець  -> нічого не може на чужій території.
 
 local S = minetest.get_translator("lean_protect")
 
@@ -31,14 +25,18 @@ local function is_interaction_protected(pos, pname)
 		return false -- Дозволено
 	end
 
-	-- 4. Якщо ми дійшли сюди, це чужа область.
-	-- Навіть якщо в гравця є protection_bypass, тут ми його ігноруємо.
+	-- 4. Чужа область. Ігноруємо protection_bypass тут.
 	return true
 end
 
-local function rotate_and_close(pname)
+local function rotate_and_close(pname, pos)
 	local player = minetest.get_player_by_name(pname)
 	if player then
+		-- ВАЖЛИВО: Викликаємо логування, щоб спрацював on_protection_violation
+		if pos then
+			minetest.record_protection_violation(pos, pname)
+		end
+		
 		minetest.close_formspec(pname, "")
 		
 		local yaw = player:get_look_horizontal() + math.pi
@@ -69,9 +67,8 @@ minetest.register_on_mods_loaded(function()
 			def.on_rightclick = function(pos, node, clicker, itemstack, pointed_thing)
 				if clicker and clicker:is_player() then
 					local pname = clicker:get_player_name()
-					-- Використовуємо НОВУ перевірку взаємодії
 					if is_interaction_protected(pos, pname) then
-						rotate_and_close(pname)
+						rotate_and_close(pname, pos)
 						return itemstack
 					end
 				end
@@ -86,9 +83,12 @@ minetest.register_on_mods_loaded(function()
 			local orig_can_dig = def.can_dig
 			def.can_dig = function(pos, player)
 				if player and player:is_player() then
-					-- Для ламання використовуємо СТАРУ перевірку (core.is_protected),
-					-- щоб protection_bypass міг ламати блоки.
-					if core.is_protected(pos, player:get_player_name()) then
+					local pname = player:get_player_name()
+					-- Для ламання використовуємо core.is_protected (bypass працює)
+					if core.is_protected(pos, pname) then
+						-- ДОДАНО: Якщо рушій скасовує ламання тут, 
+						-- ми самі фіксуємо порушення, щоб спрацював розворот
+						minetest.record_protection_violation(pos, pname)
 						return false
 					end
 				end
@@ -107,9 +107,8 @@ minetest.register_on_mods_loaded(function()
 			def.allow_metadata_inventory_put = function(pos, listname, index, stack, player)
 				if player and player:is_player() then
 					local pname = player:get_player_name()
-					-- НОВА перевірка
 					if is_interaction_protected(pos, pname) then
-						rotate_and_close(pname)
+						rotate_and_close(pname, pos)
 						return 0
 					end
 				end
@@ -119,9 +118,8 @@ minetest.register_on_mods_loaded(function()
 			def.allow_metadata_inventory_take = function(pos, listname, index, stack, player)
 				if player and player:is_player() then
 					local pname = player:get_player_name()
-					-- НОВА перевірка
 					if is_interaction_protected(pos, pname) then
-						rotate_and_close(pname)
+						rotate_and_close(pname, pos)
 						return 0
 					end
 				end
@@ -131,9 +129,8 @@ minetest.register_on_mods_loaded(function()
 			def.allow_metadata_inventory_move = function(pos, from_list, from_index, to_list, to_index, count, player)
 				if player and player:is_player() then
 					local pname = player:get_player_name()
-					-- НОВА перевірка
 					if is_interaction_protected(pos, pname) then
-						rotate_and_close(pname)
+						rotate_and_close(pname, pos)
 						return 0
 					end
 				end

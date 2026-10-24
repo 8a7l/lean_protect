@@ -8,5 +8,8 @@ lean_protect_max_volume_per_player (Max volume per player) int 10000 1000 100000
 # Minimum volume (in blocks) required to create an area
 lean_protect_min_volume_per_area (Min volume per area) int 1000 1 100000
 
+# Maximum volume (in blocks) allowed for area visualization (prevents OOM)
+lean_protect_max_visual_volume (Max visual volume) int 10000 1000 100000
+
 # Interval in seconds between writing data to disk
 lean_protect_save_interval (Storage save interval) float 2.0 0.5 60.0

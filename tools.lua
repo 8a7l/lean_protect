@@ -4,17 +4,7 @@
 -- lean_protect/tools.lua
 --
 -- Marker tools for selecting area corners.
---
--- PERFORMANCE (critical):
---   * globalstep проходить лише по гравцях із активним виділенням
---     (selected_list), а не по всіх на сервері.
---   * Якщо гравець не має pos1/pos2 — він взагалі не перевіряється.
---   * Це дає ~500× менше роботи при 1000 гравцях і 2 активних.
---
--- Visibility rule: the green preview box is shown ONLY when the player
--- holds a marker tool (tool1 or tool2) in the active hand.
--- If the player switches to any other item, the preview hides
--- automatically, but pos1/pos2 stay in memory.
+-- Added MAX_VISUAL_VOLUME check to prevent memory issues.
 
 local S = minetest.get_translator("lean_protect")
 
@@ -104,9 +94,27 @@ local function on_use_tool(player, pos, marker_index, itemstack)
 	end
 
 	local key = (marker_index == 1) and "pos1" or "pos2"
-	sel[key] = {x = pos.x, y = pos.y, z = pos.z}
+	local new_pos = {x = pos.x, y = pos.y, z = pos.z}
 
-	-- Додаємо до selected_list: цей гравець тепер активний
+	-- Визначаємо, які координати будуть, якщо ми збережемо цей маркер
+	local p1 = (key == "pos1") and new_pos or sel.pos1
+	local p2 = (key == "pos2") and new_pos or sel.pos2
+
+	-- Перевіряємо об'єм ПЕРЕД збереженням та малюванням
+	if p1 and p2 then
+		local vol = calc_volume(p1, p2)
+
+		-- Захист від OOM: якщо область занадто велика для малювання
+		if vol > lean_protect.MAX_VISUAL_VOLUME then
+			minetest.chat_send_player(pname,
+				S("[ERROR] Selection is too large to visualize (Max: @1 blocks, Yours: @2).", 
+				lean_protect.MAX_VISUAL_VOLUME, vol))
+			return itemstack -- Скасовуємо клік, маркер не ставиться
+		end
+	end
+
+	-- Якщо перевірка пройдена, зберігаємо маркер
+	sel[key] = new_pos
 	add_to_selected(player, pname)
 
 	show_pos(player, S("Marker @1 set", marker_index), sel[key])
@@ -171,7 +179,6 @@ minetest.register_craft({
 
 -- ============================================================
 -- Globalstep: показ/приховування залежно від триманого предмета
--- Проходить ЛИШЕ по selected_list.
 -- ============================================================
 local CHECK_INTERVAL = 0.5
 local accum = 0
@@ -182,15 +189,12 @@ minetest.register_globalstep(function(dtime)
 	if accum < CHECK_INTERVAL then return end
 	accum = 0
 
-	-- Проходимо з кінця: якщо гравець вийшов зі стану selected
-	-- (наприклад, /protect_cancel), видаляємо його зі списку.
 	for i = #selected_list, 1, -1 do
 		local player = selected_list[i]
 		local pname = player:get_player_name()
 		local sel = selections[pname]
 
 		if not sel then
-			-- Виділення вже немає — прибираємо з selected
 			selected_lookup[pname] = nil
 			table.remove(selected_list, i)
 		else
@@ -204,7 +208,7 @@ minetest.register_globalstep(function(dtime)
 end)
 
 -- ============================================================
--- Публічна функція для commands.lua — забути гравця
+-- Публічна функція для commands.lua
 -- ============================================================
 function lean_protect.tools_forget(pname)
 	remove_from_selected(pname)
@@ -216,7 +220,6 @@ end
 minetest.register_on_leaveplayer(function(player)
 	local pname = player:get_player_name()
 
-	-- Прибрати виділення (саме блоки)
 	local sel = selections[pname]
 	if sel then
 		hide_preview(sel)

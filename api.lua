@@ -23,11 +23,13 @@ local CHUNK_SIZE = 16
 local MAX_AREAS_PER_PLAYER = tonumber(settings:get("lean_protect_max_areas_per_player")) or 3
 local MAX_VOLUME_PER_PLAYER = tonumber(settings:get("lean_protect_max_volume_per_player")) or 10000
 local MIN_VOLUME_PER_AREA = tonumber(settings:get("lean_protect_min_volume_per_area")) or 1000
+local MAX_VISUAL_VOLUME = tonumber(settings:get("lean_protect_max_visual_volume")) or 10000
 
 lean_protect.CHUNK_SIZE = CHUNK_SIZE
 lean_protect.MAX_AREAS_PER_PLAYER = MAX_AREAS_PER_PLAYER
 lean_protect.MAX_VOLUME_PER_PLAYER = MAX_VOLUME_PER_PLAYER
 lean_protect.MIN_VOLUME_PER_AREA = MIN_VOLUME_PER_AREA
+lean_protect.MAX_VISUAL_VOLUME = MAX_VISUAL_VOLUME
 
 local floor = math.floor
 local min = math.min
@@ -38,8 +40,6 @@ local max = math.max
 -- ============================================================
 
 -- Єдина формула хешу чанку для всього моду.
--- Використовується і тут, і в protection.lua.
--- Виносимо в lean_protect.*, щоб уникнути дублювання.
 function lean_protect.chunk_hash(cx, cy, cz)
 	return (cx * 1048576 + cy) * 1048576 + cz
 end
@@ -182,7 +182,6 @@ local function check_limits(owner, minp, maxp)
 			" blocks, minimum " .. MIN_VOLUME_PER_AREA .. ")"
 	end
 
-	-- FIX: без створення порожньої таблиці
 	local list = by_owner[owner]
 	local count = list and #list or 0
 	if count >= MAX_AREAS_PER_PLAYER then
@@ -443,11 +442,6 @@ end
 -- ============================================================
 -- Пошук
 -- ============================================================
-
--- FIX: раніше після першої області, у якій гравець НЕ член, ми
--- одразу повертали true (захищено). Але якщо є перекриття (можливе
--- при force=true), то гравець може бути членом іншої області, що
--- перекриває. Тепер продовжуємо перевірку.
 function lean_protect.is_pos_protected(pos, player_name)
 	local lst = chunks[lean_protect.pos_chunk_hash(pos.x, pos.y, pos.z)]
 	if not lst then return false end
@@ -461,11 +455,8 @@ function lean_protect.is_pos_protected(pos, player_name)
 			pos.y >= data.min.y and pos.y <= data.max.y and
 			pos.z >= data.min.z and pos.z <= data.max.z then
 			if lean_protect.is_member(data, player_name) then
-				-- Гравець має доступ до цієї області — продовжуємо
-				-- перевіряти інші (може бути перекриття)
+				-- Гравець має доступ до цієї області
 			else
-				-- Знайдено чужу область — запам'ятали, але не
-				-- виходимо, бо можливо є ще одна, де гравець член
 				owner = owner or data.owner
 				id = id or aid
 			end
