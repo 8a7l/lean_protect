@@ -30,29 +30,12 @@ local function is_interaction_protected(pos, pname)
 end
 
 local function rotate_and_close(pname, pos)
-	local player = minetest.get_player_by_name(pname)
-	if player then
-		-- ВАЖЛИВО: Викликаємо логування, щоб спрацював on_protection_violation
-		if pos then
-			minetest.record_protection_violation(pos, pname)
-		end
-		
-		minetest.close_formspec(pname, "")
-		
-		local yaw = player:get_look_horizontal() + math.pi
-		yaw = yaw % (2 * math.pi)
-		local pitch = -player:get_look_vertical()
-
-		for i = 1, 5 do
-			minetest.after(i * 0.1, function()
-				local p = minetest.get_player_by_name(pname)
-				if p then
-					p:set_look_horizontal(yaw)
-					p:set_look_vertical(pitch)
-				end
-			end)
-		end
+	-- Просто фіксуємо порушення і закриваємо форму.
+	-- Розворот зробить protection.lua!
+	if pos then
+		minetest.record_protection_violation(pos, pname)
 	end
+	minetest.close_formspec(pname, "")
 end
 
 minetest.register_on_mods_loaded(function()

@@ -40,22 +40,25 @@ minetest.register_on_protection_violation(function(pos, player_name)
 		minetest.chat_send_player(player_name, S("Protected by @1", owner))
 	end
 
-	-- 2. 3D-розворот (5 спроб для впевненості)
+	-- 2. 3D-розворот (миттєвий + відкладений)
 	local player = minetest.get_player_by_name(player_name)
 	if player then
 		local yaw = player:get_look_horizontal() + math.pi
 		yaw = yaw % (2 * math.pi)
 		local pitch = -player:get_look_vertical()
 
-		for i = 1, 5 do
-			minetest.after(i * 0.1, function()
-				local p = minetest.get_player_by_name(player_name)
-				if p then
-					p:set_look_horizontal(yaw)
-					p:set_look_vertical(pitch)
-				end
-			end)
-		end
+		-- Миттєвий розворот
+		player:set_look_horizontal(yaw)
+		player:set_look_vertical(pitch)
+
+		-- Друга спроба через 0.1с (тепер вона потрібна для всіх!)
+		minetest.after(0.1, function()
+			local p = minetest.get_player_by_name(player_name)
+			if p then
+				p:set_look_horizontal(yaw)
+				p:set_look_vertical(pitch)
+			end
+		end)
 	end
 end)
 
